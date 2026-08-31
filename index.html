@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>Анализатор сессий RedStar & HM3 v4</title>
+    <title>Анализатор сессий</title>
     <style>
         body { font-family: 'Segoe UI', sans-serif; background: #121212; color: #e0e0e0; padding: 40px; margin: 0; }
         .container { max-width: 1000px; margin: 0 auto; }
@@ -39,11 +39,11 @@
 </head>
 <body>
 <div class="container">
-    <h1>RedStar Poker Analyzer</h1>
-    <div class="player-name" id="player-title">Накопительный анализ сессий</div>
+    <h1>Анализатор</h1>
+    <div class="player-name" id="player-title">Имя игрока</div>
     
     <div class="controls">
-        <button class="btn-upload" onclick="document.getElementById('redstar-input').click()">📁 Добавить из RedStar</button>
+        <button class="btn-upload" onclick="document.getElementById('redstar-input').click()">📁 Добавить из Tables</button>
         <input type="file" id="redstar-input" webkitdirectory directory multiple style="display: none;">
         
         <button class="btn-upload hm3" onclick="document.getElementById('hm3-input').click()">📁 Добавить из HM3 Archive</button>
