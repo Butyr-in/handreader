@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Анализатор сессий</title>
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; background: #121212; color: #e0e0e0; padding: 40px; margin: 0; }
+        .container { max-width: 1000px; margin: 0 auto; }
+        h1 { text-align: center; color: #4caf50; margin-bottom: 5px; }
+        .player-name { text-align: center; color: #888; margin-bottom: 30px; font-size: 14px; text-transform: uppercase; letter-spacing: 1px; }
+        
+        /* Две кнопки управления */
+        .controls { display: flex; gap: 15px; justify-content: center; margin-bottom: 30px; flex-wrap: wrap; }
+        .btn-upload { background: #4caf50; color: #fff; padding: 12px 20px; border-radius: 8px; border: none; font-size: 15px; font-weight: bold; cursor: pointer; transition: 0.2s; }
+        .btn-upload.hm3 { background: #2196f3; }
+        .btn-upload:hover { filter: brightness(1.1); }
+        #drop-zone { width: 100%; border: 2px dashed #4caf50; padding: 15px; border-radius: 8px; text-align: center; background: #1e1e1e; color: #aaa; margin-top: 10px; }
+        
+        .stats-card { display: flex; justify-content: space-around; background: #1e1e1e; padding: 25px; border-radius: 12px; margin-top: 20px; border-left: 5px solid #4caf50; box-shadow: 0 4px 15px rgba(0,0,0,0.3); }
+        .stat-item { text-align: center; min-width: 140px; }
+        .stat-val { font-size: 32px; font-weight: bold; color: #fff; }
+        .stat-lbl { font-size: 12px; color: #aaa; text-transform: uppercase; margin-top: 5px; }
+        .session-block { background: #1e1e1e; border-radius: 8px; margin-top: 20px; padding: 20px; border-left: 4px solid #2196f3; box-shadow: 0 4px 10px rgba(0,0,0,0.2); }
+        .session-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #333; padding-bottom: 10px; margin-bottom: 15px; }
+        .session-title { font-size: 18px; font-weight: bold; color: #2196f3; }
+        .session-time { font-size: 14px; color: #ffb74d; font-weight: 500; }
+        .session-summary { display: flex; gap: 30px; font-size: 14px; margin-bottom: 15px; color: #bbb; }
+        .profit-plus { color: #4caf50 !important; }
+        .profit-minus { color: #f44336 !important; }
+        table { width: 100%; border-collapse: collapse; background: #252525; border-radius: 6px; overflow: hidden; }
+        th, td { padding: 10px 14px; text-align: left; border-bottom: 1px solid #333; font-size: 13px; }
+        th { background: #333; color: #2196f3; text-transform: uppercase; font-size: 11px; }
+        tr:hover { background: #2d2d2d; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1>Анализатор сессий</h1>
+    <div class="player-name" id="player-title">Имя игрока</div>
+    
+    <div class="controls">
+        <!-- Кнопка 1: Источник рума -->
+        <button class="btn-upload" onclick="document.getElementById('redstar-input').click()">📁 1. Живая папка RedStar</button>
+        <input type="file" id="redstar-input" webkitdirectory directory multiple style="display: none;">
+        
+        <!-- Кнопка 2: Источник HM3 -->
+        <button class="btn-upload hm3" onclick="document.getElementById('hm3-input').click()">📁 2. Архив HM3</button>
+        <input type="file" id="hm3-input" webkitdirectory directory multiple style="display: none;">
+        
+        <div id="drop-zone">Или выделите файлы/папки в проводнике и перетащите их СЮДА целиком</div>
+    </div>
+    
+    <div id="summary" style="display: none;">
+        <div class="stats-card">
+            <div class="stat-item"><div class="stat-val" id="total-sessions">0</div><div class="stat-lbl">Всего сессий</div></div>
+            <div class="stat-item"><div class="stat-val" id="total-hands">0</div><div class="stat-lbl">Активных рук</div></div>
+            <div class="stat-item"><div class="stat-val" id="total-profit">€0.00</div><div class="stat-lbl">Общий профит</div></div>
+            <div class="stat-item"><div class="stat-val" id="total-time">0 ч. 0 мин.</div><div class="stat-lbl">Время активной игры</div></div>
+        </div>
+        <h2 style="margin-top: 40px; color: #4caf50;">Хронология активных сессий:</h2>
+        <div id="sessions-list"></div>
+    </div>
+</div>
+<script>
+    const redstarInput = document.getElementById('redstar-input');
+    const hm3Input = document.getElementById('hm3-input');
+    const dropZone = document.getElementById('drop-zone');
+    const summaryDiv = document.getElementById('summary');
+    const sessionsList = document.getElementById('sessions-list');
+    const playerTitle = document.getElementById('player-title');
+
+    // Хранилище всех уникальных обработанных столов
+    let globalProcessedTables = new Map();
+    let currentNickname = "GNKTABACCO";
+
+    redstarInput.onchange = (e) => processFileList(e.target.files);
+    hm3Input.onchange = (e) => processFileList(e.target.files);
+    dropZone.ondragover = (e) => { e.preventDefault(); dropZone.style.borderColor = '#66bb6a'; };
+    dropZone.ondragleave = () => { dropZone.style.borderColor = '#4caf50'; };
+    dropZone.ondrop = (e) => { e.preventDefault(); dropZone.style.borderColor = '#4caf50'; processFileList(e.dataTransfer.files); };
+
+    function getTagValue(text, tagName) {
+        const regex = new RegExp(`<${tagName}>?\\s*([^<]+)\\s*<\/${tagName}>`, 'i');
+        const match = text.match(regex);
+        return match ? match.trim() : '';
+    }
+
+    async function processFileList(fileList) {
+        const files = Array.from(fileList);
+        let newTablesLoaded = false;
+
+        for (const file of files) {
+            if (!file.name.endsWith('.xml') && !file.name.endsWith('.txt')) continue;
+            const text = await file.text();
+            
+            // Проверяем наличие уникального кода сессии стола iPoker, чтобы исключить дубли
+            const sessionCode = getTagValue(text, 'session') || text.match(/sessioncode="(\d+)"/i)?.[1];
+            if (!sessionCode) continue;
+
+            // Если трекер уже скопировал этот файл и мы прочитали его дважды — пропускаем дубликат
+            if (globalProcessedTables.has(sessionCode)) continue;
+
+            const handMatches = (text.match(/<game\b/ig) || []).length;
+            if (handMatches === 0) continue;
+
+            // Защита: Считаем только те столы, где Hero делал ставки
+            const betsText = getTagValue(text, 'bets') || '0';
+            const bets = parseFloat(betsText.replace(/[^0-9.-]/g, '')) || 0;
+            if (bets === 0) continue; 
+
+            const tableName = getTagValue(text, 'tablename') || 'Неизвестный стол';
+            const gameType = getTagValue(text, 'gametype') || 'Holdem';
+            const fileNick = getTagValue(text, 'nickname');
+            if (fileNick) currentNickname = fileNick;
+
+            const startDateStr = getTagValue(text, 'startdate'); 
+            const durationText = getTagValue(text, 'duration') || '00:00:00';
+            if (!startDateStr) continue;
+
+            const startDate = new Date(startDateStr.replace(/-/g, '/'));
+            const timeParts = durationText.split(':');
+            const durationMinutes = (parseInt(timeParts) * 60) + parseInt(timeParts);
+            const endDate = new Date(startDate.getTime() + durationMinutes * 60000);
+
+            const winsText = getTagValue(text, 'wins') || '0';
+            const wins = parseFloat(winsText.replace(/[^0-9.-]/g, '')) || 0;
+            const profit = wins - bets;
+
+            globalProcessedTables.set(sessionCode, {
+                tableName, gameType, handMatches, durationText, durationMinutes, startDate, endDate, profit
+            });
+            newTablesLoaded = true;
+        }
+
+        if (newTablesLoaded) {
+            rebuildDashboard();
+        }
+    }
+    function rebuildDashboard() {
+        sessionsList.innerHTML = '';
+        let rawTables = Array.from(globalProcessedTables.values());
+        
+        if (rawTables.length === 0) return;
+
+        // Хронологическая сортировка столов из двух разных папок
+        rawTables.sort((a, b) => a.startDate - b.startDate);
+
+        let sessions = [];
+        let currentSession = { tables: [rawTables] };
+
+        for (let i = 1; i < rawTables.length; i++) {
+            let lastTable = currentSession.tables[currentSession.tables.length - 1];
+            let currentTable = rawTables[i];
+
+            // Группировка: Перерыв между закрытием одного стола и открытием другого > 45 мин означает новую сессию
+            if ((currentTable.startDate - lastTable.endDate) / 60000 > 45) {
+                sessions.push(currentSession);
+                currentSession = { tables: [currentTable] };
+            } else {
+                currentSession.tables.push(currentTable);
+            }
+        }
+        sessions.push(currentSession);
+
+        playerTitle.innerText = `Игрок: ${currentNickname}`;
+        let globalHands = 0, globalProfit = 0, globalMinutes = 0;
+
+        sessions.reverse().forEach((session, index) => {
+            let sStart = new Date(Math.min(...session.tables.map(t => t.startDate)));
+            let sEnd = new Date(Math.max(...session.tables.map(t => t.endDate)));
+            let sHands = 0, sProfit = 0, sMinutes = 0;
+            let tableRows = '';
+
+            session.tables.forEach(t => {
+                sHands += t.handMatches; sProfit += t.profit; sMinutes += t.durationMinutes;
+                const pClass = t.profit > 0 ? 'profit-plus' : (t.profit < 0 ? 'profit-minus' : '');
+                const sign = t.profit > 0 ? '+' : '';
+                tableRows += `<tr>
+                    <td><strong>${t.tableName}</strong> (${t.gameType})</td>
+                    <td>${t.handMatches}</td>
+                    <td>${t.durationText}</td>
+                    <td class="${pClass}"><b>${sign}€${t.profit.toFixed(2)}</b></td>
+                </tr>`;
+            });
+
+            globalHands += sHands; globalProfit += sProfit; globalMinutes += sMinutes;
+            const sessionProfitClass = sProfit > 0 ? 'profit-plus' : (sProfit < 0 ? 'profit-minus' : '');
+            const sessionDate = sStart.toLocaleDateString('ru-RU', { year: 'numeric', month: '2-digit', day: '2-digit' });
+            const timeRange = `с ${sStart.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })} до ${sEnd.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}`;
+
+            sessionsList.innerHTML += `
+                <div class="session-block">
+                    <div class="session-header">
+                        <div class="session-title">Сессия №${sessions.length - index} — ${sessionDate}</div>
+                        <div class="session-time">⏰ Время сессии: ${timeRange}</div>
+                    </div>
+                    <div class="session-summary">
+                        <div>Активных раздач: <b>${sHands}</b></div>
+                        <div>Время столов: <b>${Math.floor(sMinutes/60)} ч. ${sMinutes%60} мин.</b></div>
+                        <div>Результат: <span class="${sessionProfitClass}"><b>${sProfit > 0 ? '+' : ''}€${sProfit.toFixed(2)}</b></span></div>
+                    </div>
+                    <table>
+                        <thead><tr><th>Имя стола</th><th>Раздач</th><th>Длительность</th><th>Профит</th></tr></thead>
+                        <tbody>${tableRows}</tbody>
+                    </table>
+                </div>`;
+        });
+
+        document.getElementById('total-sessions').innerText = sessions.length;
+        document.getElementById('total-hands').innerText = globalHands;
+        document.getElementById('total-time').innerText = `${Math.floor(globalMinutes / 60)} ч. ${globalMinutes % 60} мин.`;
+        
+        const totalProfitDiv = document.getElementById('total-profit');
+        totalProfitDiv.innerText = (globalProfit > 0 ? '+' : '') + '€' + globalProfit.toFixed(2);
+        totalProfitDiv.className = 'stat-val ' + (globalProfit > 0 ? 'profit-plus' : (globalProfit < 0 ? 'profit-minus' : ''));
+        summaryDiv.style.display = 'block';
+    }
+</script>
+</body>
+</html>
