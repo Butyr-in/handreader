@@ -2,245 +2,1034 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>Анализатор сессий</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Анализ покерных сессий</title>
     <style>
-        body { font-family: 'Segoe UI', sans-serif; background: #121212; color: #e0e0e0; padding: 40px; margin: 0; }
-        .container { max-width: 1000px; margin: 0 auto; }
-        h1 { text-align: center; color: #4caf50; margin-bottom: 5px; }
-        .player-name { text-align: center; color: #888; margin-bottom: 30px; font-size: 14px; text-transform: uppercase; letter-spacing: 1px; }
-        
-        .controls { display: flex; gap: 15px; justify-content: center; margin-bottom: 30px; align-items: center; }
-        .btn-upload { background: #4caf50; color: #fff; padding: 12px 24px; border-radius: 8px; border: none; font-size: 15px; font-weight: bold; cursor: pointer; transition: 0.2s; }
-        .btn-upload.hm3 { background: #2196f3; }
-        .btn-upload:hover { filter: brightness(1.1); }
-        
-        #status-bar { text-align: center; color: #ffb74d; font-weight: bold; margin-bottom: 20px; font-size: 15px; }
-        #drop-zone { border: 2px dashed #4caf50; padding: 15px; border-radius: 8px; text-align: center; background: #1e1e1e; color: #aaa; margin-top: 10px; }
-        
-        .stats-card { display: flex; justify-content: space-around; background: #1e1e1e; padding: 25px; border-radius: 12px; margin-top: 20px; border-left: 5px solid #4caf50; box-shadow: 0 4px 15px rgba(0,0,0,0.3); }
-        .stat-item { text-align: center; min-width: 140px; }
-        .stat-val { font-size: 32px; font-weight: bold; color: #fff; }
-        .stat-lbl { font-size: 12px; color: #aaa; text-transform: uppercase; margin-top: 5px; }
-        
-        .session-block { background: #1e1e1e; border-radius: 8px; margin-top: 20px; padding: 20px; border-left: 4px solid #2196f3; box-shadow: 0 4px 10px rgba(0,0,0,0.2); }
-        .session-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #333; padding-bottom: 10px; margin-bottom: 15px; }
-        .session-title { font-size: 18px; font-weight: bold; color: #2196f3; }
-        .session-time { font-size: 14px; color: #ffb74d; font-weight: 500; }
-        .session-summary { display: flex; gap: 30px; font-size: 14px; margin-bottom: 15px; color: #bbb; }
-        
-        .profit-plus { color: #4caf50 !important; }
-        .profit-minus { color: #f44336 !important; }
-        
-        table { width: 100%; border-collapse: collapse; background: #252525; border-radius: 6px; overflow: hidden; }
-        th, td { padding: 10px 14px; text-align: left; border-bottom: 1px solid #333; font-size: 13px; }
-        th { background: #333; color: #2196f3; text-transform: uppercase; font-size: 11px; }
-        tr:hover { background: #2d2d2d; }
+        /* ===== CSS-переменные для светлой/тёмной темы ===== */
+        :root {
+            --bg-body: #f4f7fc;
+            --bg-container: #ffffff;
+            --bg-card: #f8faff;
+            --bg-hover: #eef4ff;
+            --bg-header: #f1f5f9;
+            --text-primary: #1e2a3a;
+            --text-secondary: #475569;
+            --text-muted: #94a3b8;
+            --border-light: #e2e8f0;
+            --border-dark: #cbd5e1;
+            --shadow: 0 10px 25px rgba(0,0,0,0.05);
+            --btn-bg: #eef2f7;
+            --btn-primary: #2a6df4;
+            --btn-primary-hover: #1a56d4;
+            --btn-success: #28a745;
+            --btn-success-hover: #1e7e34;
+            --btn-danger: #dc3545;
+            --btn-danger-hover: #b02a37;
+            --positive: #16a34a;
+            --negative: #dc2626;
+            --neutral: #2563eb;
+            --day-active: #2a6df4;
+            --day-active-text: #ffffff;
+            --day-border: #2a6df4;
+            --scale: 1;
+        }
+
+        [data-theme="dark"] {
+            --bg-body: #0f172a;
+            --bg-container: #1e293b;
+            --bg-card: #2d3a4f;
+            --bg-hover: #334155;
+            --bg-header: #2d3a4f;
+            --text-primary: #e2e8f0;
+            --text-secondary: #94a3b8;
+            --text-muted: #64748b;
+            --border-light: #334155;
+            --border-dark: #475569;
+            --shadow: 0 10px 25px rgba(0,0,0,0.4);
+            --btn-bg: #334155;
+            --btn-primary: #3b82f6;
+            --btn-primary-hover: #2563eb;
+            --btn-success: #22c55e;
+            --btn-success-hover: #16a34a;
+            --btn-danger: #ef4444;
+            --btn-danger-hover: #dc2626;
+            --positive: #4ade80;
+            --negative: #f87171;
+            --neutral: #60a5fa;
+            --day-active: #3b82f6;
+            --day-active-text: #ffffff;
+            --day-border: #3b82f6;
+        }
+
+        /* ===== Масштабирование ===== */
+        .app-wrapper {
+            transform: scale(var(--scale));
+            transform-origin: top left;
+            width: calc(100% / var(--scale));
+        }
+
+        /* ===== Общие стили ===== */
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: var(--bg-body);
+            color: var(--text-primary);
+            padding: 20px;
+            transition: background 0.3s, color 0.3s;
+            overflow-x: hidden;
+        }
+        .container {
+            max-width: 1600px;
+            margin: 0 auto;
+            background: var(--bg-container);
+            padding: 25px;
+            border-radius: 16px;
+            box-shadow: var(--shadow);
+            transition: background 0.3s;
+        }
+
+        /* ===== Шапка ===== */
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            margin-bottom: 20px;
+            gap: 10px;
+        }
+        .header h1 { font-weight: 600; font-size: 24px; }
+        .controls {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            align-items: center;
+        }
+        .btn {
+            background: var(--btn-bg);
+            border: none;
+            padding: 8px 16px;
+            border-radius: 8px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: 0.2s;
+            font-size: 14px;
+            color: var(--text-primary);
+            white-space: nowrap;
+        }
+        .btn-primary { background: var(--btn-primary); color: white; }
+        .btn-primary:hover { background: var(--btn-primary-hover); }
+        .btn-success { background: var(--btn-success); color: white; }
+        .btn-success:hover { background: var(--btn-success-hover); }
+        .btn-danger { background: var(--btn-danger); color: white; }
+        .btn-danger:hover { background: var(--btn-danger-hover); }
+        .btn-outline {
+            background: transparent;
+            border: 1px solid var(--border-dark);
+        }
+        .btn-outline:hover { background: var(--bg-hover); }
+        .btn-outline.active-filter {
+            background: var(--btn-primary);
+            color: white;
+            border-color: var(--btn-primary);
+        }
+
+        /* ===== Выбор папок ===== */
+        .folder-upload {
+            background: var(--bg-card);
+            border: 2px dashed var(--border-dark);
+            border-radius: 12px;
+            padding: 20px 25px;
+            margin-bottom: 20px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            align-items: center;
+            transition: background 0.3s;
+        }
+        .folder-upload label { font-weight: 500; margin-right: 5px; }
+        .folder-upload input[type="file"] { display: none; }
+        .folder-upload .file-info { font-size: 14px; color: var(--text-secondary); }
+        .folder-upload .spacer { flex: 1; }
+
+        /* ===== Фильтры ===== */
+        .filters {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px 15px;
+            align-items: center;
+            background: var(--bg-card);
+            padding: 12px 18px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+            transition: background 0.3s;
+        }
+        .filter-group {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            flex-wrap: wrap;
+        }
+        .filter-group label { font-weight: 500; font-size: 14px; }
+        .filter-group input[type="date"],
+        .filter-group input[type="number"],
+        .filter-group input[type="time"] {
+            padding: 6px 10px;
+            border: 1px solid var(--border-dark);
+            border-radius: 6px;
+            font-size: 13px;
+            background: var(--bg-container);
+            color: var(--text-primary);
+            transition: background 0.3s, color 0.3s;
+        }
+        .filter-group input[type="number"] { width: 65px; }
+        .filter-group input[type="time"] { width: 90px; }
+
+        /* ===== Статистика (карточки) ===== */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin-bottom: 25px;
+        }
+        .stat-card {
+            background: var(--bg-card);
+            padding: 16px 18px;
+            border-radius: 12px;
+            text-align: center;
+            transition: background 0.3s;
+        }
+        .stat-card .label { font-size: 13px; color: var(--text-secondary); font-weight: 500; }
+        .stat-card .value {
+            font-size: 24px;
+            font-weight: 700;
+            margin-top: 4px;
+        }
+        .stat-card .value.positive { color: var(--positive); }
+        .stat-card .value.negative { color: var(--negative); }
+        .stat-card .value.neutral { color: var(--neutral); }
+
+        /* ===== Основная область: 50% на 50% ===== */
+        .main-layout {
+            display: flex;
+            gap: 20px;
+            margin-top: 15px;
+            align-items: stretch;
+        }
+        .main-layout .left-panel {
+            flex: 1;
+            min-width: 0;
+            overflow-x: auto;
+            border: 1px solid var(--border-light);
+            border-radius: 12px;
+            background: var(--bg-container);
+            padding: 0;
+        }
+        .main-layout .right-panel {
+            flex: 1;
+            min-width: 0;
+            background: var(--bg-card);
+            border-radius: 12px;
+            padding: 16px;
+            border: 1px solid var(--border-light);
+            transition: background 0.3s;
+            max-height: none;
+            overflow-y: visible;
+        }
+        .right-panel .panel-title {
+            font-weight: 600;
+            font-size: 15px;
+            margin-bottom: 12px;
+            color: var(--text-secondary);
+            padding-bottom: 8px;
+            border-bottom: 2px solid var(--border-light);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .right-panel .panel-title .count {
+            font-size: 13px;
+            font-weight: 400;
+            color: var(--text-muted);
+        }
+        .right-panel .panel-stats {
+            display: flex;
+            gap: 20px;
+            padding: 8px 4px 12px 4px;
+            font-size: 14px;
+            color: var(--text-secondary);
+            border-bottom: 1px solid var(--border-light);
+            margin-bottom: 12px;
+            flex-wrap: wrap;
+        }
+        .right-panel .panel-stats span {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+        .right-panel .panel-stats .value {
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        /* ===== Сессии в правой панели ===== */
+        .session-item {
+            padding: 10px 12px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: 0.2s;
+            margin-bottom: 6px;
+            border: 1px solid var(--border-light);
+            background: var(--bg-container);
+        }
+        .session-item:hover {
+            background: var(--bg-hover);
+            border-color: var(--btn-primary);
+        }
+        .session-item .session-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-weight: 500;
+            font-size: 14px;
+        }
+        .session-item .session-header .time {
+            font-weight: 400;
+            font-size: 13px;
+            color: var(--text-secondary);
+        }
+        .session-item .session-details {
+            display: flex;
+            gap: 15px;
+            font-size: 13px;
+            margin-top: 4px;
+            color: var(--text-secondary);
+            flex-wrap: wrap;
+        }
+        .session-item .session-details .profit {
+            font-weight: 600;
+        }
+        .session-item .session-details .profit.positive { color: var(--positive); }
+        .session-item .session-details .profit.negative { color: var(--negative); }
+
+        /* ===== Таблицы ===== */
+        .left-panel table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 14px;
+            border-radius: 12px;
+            overflow: hidden;
+        }
+        .left-panel th {
+            background: var(--bg-header);
+            text-align: left;
+            padding: 10px 12px;
+            font-weight: 600;
+            border-bottom: 2px solid var(--border-light);
+            color: var(--text-primary);
+            position: sticky;
+            top: 0;
+            z-index: 2;
+        }
+        .left-panel td {
+            padding: 10px 12px;
+            border-bottom: 1px solid var(--border-light);
+        }
+        .left-panel tr:hover td { background: var(--bg-hover); }
+        .left-panel .session-row { cursor: pointer; }
+        .left-panel .session-row:hover { background: var(--bg-hover); }
+
+        /* ===== Границы дней ===== */
+        .day-boundary td {
+            border-top: 3px solid var(--day-border) !important;
+        }
+
+        .session-detail { background: var(--bg-card); }
+        .session-detail td { padding: 15px 20px; }
+        .session-detail table {
+            font-size: 13px;
+            background: var(--bg-container);
+            border-radius: 8px;
+            border: 1px solid var(--border-light);
+        }
+        .session-detail table th { background: var(--bg-header); }
+
+        .hidden { display: none; }
+        .positive { color: var(--positive); }
+        .negative { color: var(--negative); }
+        .neutral { color: var(--neutral); }
+
+        /* ===== Выделение дня в таблице ===== */
+        .day-highlight {
+            background: var(--day-active) !important;
+            color: var(--day-active-text) !important;
+        }
+        .day-highlight td {
+            background: var(--day-active) !important;
+            color: var(--day-active-text) !important;
+        }
+        .day-highlight .positive { color: #86efac; }
+        .day-highlight .negative { color: #fca5a5; }
+        .day-highlight .neutral { color: #93c5fd; }
+
+        /* ===== Тогглер темы и масштаб ===== */
+        .theme-toggle, .scale-toggle {
+            background: none;
+            border: none;
+            font-size: 22px;
+            cursor: pointer;
+            padding: 4px 8px;
+            border-radius: 8px;
+            transition: 0.2s;
+            color: var(--text-primary);
+        }
+        .theme-toggle:hover, .scale-toggle:hover { background: var(--bg-hover); }
+
+        .scale-control {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .scale-control span {
+            font-size: 14px;
+            font-weight: 500;
+            min-width: 40px;
+            text-align: center;
+        }
+
+        /* ===== Адаптив ===== */
+        @media (max-width: 1024px) {
+            .main-layout {
+                flex-direction: column;
+            }
+            .main-layout .right-panel {
+                flex: none;
+            }
+        }
+        @media (max-width: 768px) {
+            .header { flex-direction: column; align-items: stretch; gap: 10px; }
+            .controls { flex-wrap: wrap; }
+            .folder-upload { flex-direction: column; align-items: stretch; }
+            .stats-grid { grid-template-columns: repeat(2, 1fr); }
+            .filters { flex-direction: column; align-items: stretch; }
+            .filter-group { justify-content: space-between; }
+        }
     </style>
 </head>
 <body>
-<div class="container">
-    <h1>Анализатор</h1>
-    <div class="player-name" id="player-title">Имя игрока</div>
-    
-    <div class="controls">
-        <button class="btn-upload" onclick="document.getElementById('redstar-input').click()">📁 Добавить из Tables</button>
-        <input type="file" id="redstar-input" webkitdirectory directory multiple style="display: none;">
-        
-        <button class="btn-upload hm3" onclick="document.getElementById('hm3-input').click()">📁 Добавить из HM3 Archive</button>
-        <input type="file" id="hm3-input" webkitdirectory directory multiple style="display: none;">
-    </div>
-    
-    <div id="drop-zone">Или перетаскивайте любые папки с файлами (.xml) сюда по очереди</div>
-    <div id="status-bar">Ожидание загрузки файлов...</div>
-    
-    <div id="summary" style="display: none;">
-        <div class="stats-card">
-            <div class="stat-item"><div class="stat-val" id="total-sessions">0</div><div class="stat-lbl">Всего сессий</div></div>
-            <div class="stat-item"><div class="stat-val" id="total-hands">0</div><div class="stat-lbl">Активных рук</div></div>
-            <div class="stat-item"><div class="stat-val" id="total-profit">€0.00</div><div class="stat-lbl">Общий профит</div></div>
-            <div class="stat-item"><div class="stat-val" id="total-time">0 ч. 0 мин.</div><div class="stat-lbl">Время активной игры</div></div>
-        </div>
-        <h2 style="margin-top: 40px; color: #4caf50;">Хронология сессий:</h2>
-        <div id="sessions-list"></div>
-    </div>
-</div>
-<script>
-    const redstarInput = document.getElementById('redstar-input');
-    const hm3Input = document.getElementById('hm3-input');
-    const dropZone = document.getElementById('drop-zone');
-    const summaryDiv = document.getElementById('summary');
-    const sessionsList = document.getElementById('sessions-list');
-    const playerTitle = document.getElementById('player-title');
-    const statusBar = document.getElementById('status-bar');
-
-    // Надежное хранилище уникальных столов в памяти
-    let memoryDatabase = new Map();
-    let currentNickname = "GNKTABACCO";
-
-    redstarInput.onclick = function() { this.value = null; };
-    hm3Input.onclick = function() { this.value = null; };
-
-    redstarInput.onchange = (e) => processFileList(e.target.files);
-    hm3Input.onchange = (e) => processFileList(e.target.files);
-    dropZone.ondragover = (e) => { e.preventDefault(); dropZone.style.borderColor = '#66bb6a'; };
-    dropZone.ondragleave = () => { dropZone.style.borderColor = '#4caf50'; };
-    dropZone.ondrop = (e) => { e.preventDefault(); dropZone.style.borderColor = '#4caf50'; processFileList(e.dataTransfer.files); };
-
-    function getTagValue(text, tagName) {
-        const regex = new RegExp(`<${tagName}>?\\s*([^<]+)\\s*<\/${tagName}>`, 'i');
-        const match = text.match(regex);
-        return match ? match[1].trim() : '';
-    }
-
-    async function processFileList(fileList) {
-        const files = Array.from(fileList);
-        if (files.length === 0) return;
-
-        statusBar.innerText = `Обработка папки... Найдено файлов для проверки: ${files.length}`;
-        let addedCount = 0;
-        let skippedCount = 0;
-
-        for (const file of files) {
-            if (!file.name.endsWith('.xml') && !file.name.endsWith('.txt')) continue;
-            const text = await file.text();
-            
-            // Надежно вытаскиваем уникальный код стола
-            let sessionCode = getTagValue(text, 'session');
-            if (!sessionCode) {
-                const codeMatch = text.match(/sessioncode="(\d+)"/i);
-                if (codeMatch && codeMatch[1]) {
-                    sessionCode = codeMatch[1];
-                }
-            }
-            
-            // Если тегов нет, генерируем код по имени стола и дате
-            if (!sessionCode) {
-                const tName = getTagValue(text, 'tablename');
-                const sDate = getTagValue(text, 'startdate');
-                if (tName && sDate) sessionCode = tName + "_" + sDate;
-            }
-            
-            if (!sessionCode) { skippedCount++; continue; }
-
-            // Исключаем дубликаты при повторных кликах
-            if (memoryDatabase.has(sessionCode)) { skippedCount++; continue; }
-
-            const handMatches = (text.match(/<game\b/ig) || []).length;
-            if (handMatches === 0) { skippedCount++; continue; }
-
-            // Фильтр: Только раздачи с вашими личными ставками (bets > 0)
-            const betsText = getTagValue(text, 'bets') || '0';
-            const bets = parseFloat(betsText.replace(/[^0-9.-]/g, '')) || 0;
-            if (bets === 0) { skippedCount++; continue; } 
-
-            const tableName = getTagValue(text, 'tablename') || 'Неизвестный стол';
-            const gameType = getTagValue(text, 'gametype') || 'Holdem';
-            const fileNick = getTagValue(text, 'nickname');
-            if (fileNick) currentNickname = fileNick;
-
-            const startDateStr = getTagValue(text, 'startdate'); 
-            const durationText = getTagValue(text, 'duration') || '00:00:00';
-            if (!startDateStr) { skippedCount++; continue; }
-
-            const startDate = new Date(startDateStr.replace(/-/g, '/'));
-            const timeParts = durationText.split(':');
-            const durationMinutes = (parseInt(timeParts[0]) * 60) + parseInt(timeParts[1]);
-            const endDate = new Date(startDate.getTime() + durationMinutes * 60000);
-
-            const winsText = getTagValue(text, 'wins') || '0';
-            const wins = parseFloat(winsText.replace(/[^0-9.-]/g, '')) || 0;
-            const profit = wins - bets;
-
-            memoryDatabase.set(sessionCode, {
-                tableName, gameType, handMatches, durationText, durationMinutes, startDate, endDate, profit
-            });
-            addedCount++;
-        }
-
-        statusBar.innerText = `Успешно добавлено уникальных столов: ${addedCount} (Пропущено дублей/пустых: ${skippedCount}). Всего в базе: ${memoryDatabase.size}`;
-        
-        if (addedCount > 0 || memoryDatabase.size > 0) {
-            rebuildDashboard();
-        }
-    }
-    function rebuildDashboard() {
-        sessionsList.innerHTML = '';
-        let rawTables = Array.from(memoryDatabase.values());
-        
-        if (rawTables.length === 0) return;
-
-        // Полная сортировка объединенного массива по времени открытия столов
-        rawTables.sort((a, b) => a.startDate - b.startDate);
-
-        let sessions = [];
-        let currentSession = { tables: [rawTables[0]] };
-
-        for (let i = 1; i < rawTables.length; i++) {
-            let lastTable = currentSession.tables[currentSession.tables.length - 1];
-            let currentTable = rawTables[i];
-
-            if ((currentTable.startDate - lastTable.endDate) / 60000 > 45) {
-                sessions.push(currentSession);
-                currentSession = { tables: [currentTable] };
-            } else {
-                currentSession.tables.push(currentTable);
-            }
-        }
-        sessions.push(currentSession);
-
-        playerTitle.innerText = `Игрок: ${currentNickname}`;
-        let globalHands = 0, globalProfit = 0, globalMinutes = 0;
-
-        sessions.reverse().forEach((session, index) => {
-            let sStart = new Date(Math.min(...session.tables.map(t => t.startDate)));
-            let sEnd = new Date(Math.max(...session.tables.map(t => t.endDate)));
-            let sHands = 0, sProfit = 0, sMinutes = 0;
-            let tableRows = '';
-
-            session.tables.forEach(t => {
-                sHands += t.handMatches; sProfit += t.profit; sMinutes += t.durationMinutes;
-                const pClass = t.profit > 0 ? 'profit-plus' : (t.profit < 0 ? 'profit-minus' : '');
-                const sign = t.profit > 0 ? '+' : '';
-                tableRows += `<tr>
-                    <td><strong>${t.tableName}</strong> (${t.gameType})</td>
-                    <td>${t.handMatches}</td>
-                    <td>${t.durationText}</td>
-                    <td class="${pClass}"><b>${sign}€${t.profit.toFixed(2)}</b></td>
-                </tr>`;
-            });
-
-            globalHands += sHands; globalProfit += sProfit; globalMinutes += sMinutes;
-            const sessionProfitClass = sProfit > 0 ? 'profit-plus' : (sProfit < 0 ? 'profit-minus' : '');
-            const sessionDate = sStart.toLocaleDateString('ru-RU', { year: 'numeric', month: '2-digit', day: '2-digit' });
-            const timeRange = `с ${sStart.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })} до ${sEnd.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}`;
-
-            sessionsList.innerHTML += `
-                <div class="session-block">
-                    <div class="session-header">
-                        <div class="session-title">Сессия №${sessions.length - index} — ${sessionDate}</div>
-                        <div class="session-time">⏰ Время сессии: ${timeRange}</div>
+    <div class="app-wrapper" id="app-wrapper">
+        <div class="container" id="app">
+            <!-- Шапка -->
+            <div class="header">
+                <h1>♠️ Анализ покерных сессий</h1>
+                <div class="controls">
+                    <div class="scale-control">
+                        <button class="scale-toggle" @click="scaleDown">🔍−</button>
+                        <span>{{ Math.round(scale * 100) }}%</span>
+                        <button class="scale-toggle" @click="scaleUp">🔍+</button>
                     </div>
-                    <div class="session-summary">
-                        <div>Активных раздач: <b>${sHands}</b></div>
-                        <div>Время столов: <b>${Math.floor(sMinutes/60)} ч. ${sMinutes%60} мин.</b></div>
-                        <div>Результат: <span class="${sessionProfitClass}"><b>${sProfit > 0 ? '+' : ''}€${sProfit.toFixed(2)}</b></span></div>
+                    <button class="theme-toggle" @click="toggleTheme" :title="theme === 'dark' ? 'Светлая тема' : 'Тёмная тема'">
+                        {{ theme === 'dark' ? '☀️' : '🌙' }}
+                    </button>
+                </div>
+            </div>
+
+            <!-- Выбор папок -->
+            <div class="folder-upload">
+                <div>
+                    <label>📁 Tables:</label>
+                    <button class="btn btn-primary" @click="triggerFolder('tables')">Выбрать папку</button>
+                    <input type="file" ref="tablesInput" webkitdirectory multiple @change="handleFolder('tables', $event)">
+                    <span class="file-info" v-if="fileCounts.tables > 0">{{ fileCounts.tables }} файлов загружено</span>
+                </div>
+                <div>
+                    <label>📁 HM3Archive:</label>
+                    <button class="btn btn-primary" @click="triggerFolder('hm3')">Выбрать папку</button>
+                    <input type="file" ref="hm3Input" webkitdirectory multiple @change="handleFolder('hm3', $event)">
+                    <span class="file-info" v-if="fileCounts.hm3 > 0">{{ fileCounts.hm3 }} файлов загружено</span>
+                </div>
+                <div>
+                    <button class="btn btn-success" @click="processFiles" :disabled="!hasFiles">🚀 Обработать</button>
+                    <button class="btn btn-outline" @click="refreshData" :disabled="!hasFiles">🔄 Обновить</button>
+                </div>
+                <div class="spacer"></div>
+                <div>
+                    <button class="btn btn-danger" @click="clearAllData">🗑️ Очистить кэш</button>
+                </div>
+                <div style="font-size:13px; color:var(--text-secondary);" v-if="totalGames > 0">
+                    Всего раздач: <strong>{{ totalGames }}</strong>
+                </div>
+            </div>
+
+            <!-- Фильтры -->
+            <div class="filters">
+                <div class="filter-group">
+                    <label>📅 Быстрый:</label>
+                    <button v-for="preset in presets" :key="preset.value"
+                            class="btn btn-outline"
+                            :class="{ 'active-filter': activePreset === preset.value }"
+                            @click="applyPreset(preset.value)">
+                        {{ preset.label }}
+                    </button>
+                </div>
+                <div class="filter-group">
+                    <label>С:</label>
+                    <input type="date" v-model="dateFrom" @change="applyCustomDate">
+                    <label>По:</label>
+                    <input type="date" v-model="dateTo" @change="applyCustomDate">
+                </div>
+                <div class="filter-group">
+                    <label>⏳ Разрыв (мин):</label>
+                    <input type="number" v-model.number="sessionGap" min="1" @change="saveSettings">
+                </div>
+                <div class="filter-group">
+                    <label>🌅 Начало дня:</label>
+                    <input type="time" v-model="dayStartTime" @change="saveSettings">
+                </div>
+            </div>
+
+            <!-- Карточки статистики -->
+            <div class="stats-grid" v-if="filteredSessions.length > 0">
+                <div class="stat-card">
+                    <div class="label">Сессий</div>
+                    <div class="value neutral">{{ filteredSessions.length }}</div>
+                </div>
+                <div class="stat-card">
+                    <div class="label">Активных рук</div>
+                    <div class="value neutral">{{ totalHands }}</div>
+                </div>
+                <div class="stat-card">
+                    <div class="label">Общий профит</div>
+                    <div class="value" :class="totalProfit >= 0 ? 'positive' : 'negative'">
+                        €{{ totalProfit.toFixed(2) }}
                     </div>
+                </div>
+                <div class="stat-card">
+                    <div class="label">Винрейт (BB/100)</div>
+                    <div class="value" :class="winrate >= 0 ? 'positive' : 'negative'">
+                        {{ winrate.toFixed(1) }}
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="label">Общее время</div>
+                    <div class="value neutral">{{ totalTimeFormatted }}</div>
+                </div>
+            </div>
+            <div v-else style="text-align:center; padding:30px 0; color:var(--text-muted);">
+                Загрузите папки и нажмите «Обработать», чтобы увидеть статистику.
+            </div>
+
+            <!-- Основная область: 50% на 50% -->
+            <div class="main-layout" v-if="filteredSessions.length > 0">
+                <!-- Левая панель: таблица -->
+                <div class="left-panel">
                     <table>
-                        <thead><tr><th>Имя стола</th><th>Раздач</th><th>Длительность</th><th>Профит</th></tr></thead>
-                        <tbody>${tableRows}</tbody>
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>Дата</th>
+                                <th>Время</th>
+                                <th>Руки</th>
+                                <th>Длит.</th>
+                                <th>Профит</th>
+                                <th>BB/100</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr v-for="(session, idx) in filteredSessions" :key="idx"
+                                class="session-row"
+                                :class="[
+                                    { 'day-highlight': selectedDay === getSessionDay(session) },
+                                    { 'day-boundary': isDayBoundary(idx) }
+                                ]"
+                                @click="selectDay(getSessionDay(session))">
+                                <td><strong>#{{ idx + 1 }}</strong></td>
+                                <td>{{ session.date }}</td>
+                                <td>{{ session.timeRange }}</td>
+                                <td>{{ session.hands }}</td>
+                                <td>{{ session.duration }}</td>
+                                <td :class="session.profit >= 0 ? 'positive' : 'negative'">
+                                    €{{ session.profit.toFixed(2) }}
+                                </td>
+                                <td :class="session.winrate >= 0 ? 'positive' : 'negative'">
+                                    {{ session.winrate.toFixed(1) }}
+                                </td>
+                            </tr>
+                        </tbody>
                     </table>
-                </div>`;
-        });
+                </div>
 
-        document.getElementById('total-sessions').innerText = sessions.length;
-        document.getElementById('total-hands').innerText = globalHands;
-        document.getElementById('total-time').innerText = `${Math.floor(globalMinutes / 60)} ч. ${globalMinutes % 60} мин.`;
-        
-        const totalProfitDiv = document.getElementById('total-profit');
-        totalProfitDiv.innerText = (globalProfit > 0 ? '+' : '') + '€' + globalProfit.toFixed(2);
-        totalProfitDiv.className = 'stat-val ' + (globalProfit > 0 ? 'profit-plus' : (globalProfit < 0 ? 'profit-minus' : ''));
-        summaryDiv.style.display = 'block';
-    }
-</script>
+                <!-- Правая панель: сессии выбранного дня -->
+                <div class="right-panel">
+                    <div class="panel-title">
+                        <span v-if="selectedDay === null">📋 Все сессии</span>
+                        <span v-else>📅 {{ selectedDayLabel }}</span>
+                        <span class="count">{{ displayedSessions.length }} сессий</span>
+                    </div>
+
+                    <!-- Общая статистика по сессиям в правой панели -->
+                    <div class="panel-stats" v-if="displayedSessions.length > 0">
+                        <span>🃏 <span class="value">{{ displayedSessions.reduce((sum, s) => sum + s.hands, 0) }}</span> рук</span>
+                        <span>⏱ <span class="value">{{ formatDuration(displayedSessions.reduce((sum, s) => sum + s.durationSeconds, 0)) }}</span></span>
+                        <span>💰 <span class="value" :class="displayedSessions.reduce((sum, s) => sum + s.profit, 0) >= 0 ? 'positive' : 'negative'">
+                            €{{ displayedSessions.reduce((sum, s) => sum + s.profit, 0).toFixed(2) }}
+                        </span></span>
+                    </div>
+
+                    <div v-if="displayedSessions.length === 0" style="text-align:center; padding:20px 0; color:var(--text-muted);">
+                        Нет сессий за этот день
+                    </div>
+                    <div v-for="(session, idx) in displayedSessions" :key="'right-'+idx"
+                         class="session-item"
+                         @click="openDetail = (openDetail === idx ? null : idx)">
+                        <div class="session-header">
+                            <span>#{{ idx + 1 }} {{ session.date }}</span>
+                            <span class="time">{{ session.timeRange }}</span>
+                        </div>
+                        <div class="session-details">
+                            <span>🃏 {{ session.hands }} рук</span>
+                            <span>⏱ {{ session.duration }}</span>
+                            <span class="profit" :class="session.profit >= 0 ? 'positive' : 'negative'">
+                                €{{ session.profit.toFixed(2) }}
+                            </span>
+                            <span>BB/100: {{ session.winrate.toFixed(1) }}</span>
+                        </div>
+                        <!-- Детали столов (внутри правой панели) -->
+                        <div v-if="openDetail === idx" style="margin-top:10px; padding-top:10px; border-top:1px solid var(--border-light);">
+                            <div style="font-size:13px; font-weight:600; margin-bottom:6px;">📋 Столы:</div>
+                            <div v-for="table in session.tables" :key="table.name"
+                                 style="display:flex; justify-content:space-between; padding:4px 0; font-size:13px; border-bottom:1px solid var(--border-light);">
+                                <span>{{ table.name }}</span>
+                                <span>{{ table.hands }} рук</span>
+                                <span :class="table.profit >= 0 ? 'positive' : 'negative'">€{{ table.profit.toFixed(2) }}</span>
+                                <span>{{ table.limit }}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Подключение Vue.js -->
+    <script src="https://cdn.jsdelivr.net/npm/vue@2/dist/vue.js"></script>
+    <script>
+        (function() {
+            // ===== Утилиты для парсинга XML =====
+            function parseXML(xmlString) {
+                const parser = new DOMParser();
+                return parser.parseFromString(xmlString, 'text/xml');
+            }
+
+            function getTextContent(doc, selector) {
+                const el = doc.querySelector(selector);
+                return el ? el.textContent.trim() : '';
+            }
+
+            function getAttribute(doc, selector, attr) {
+                const el = doc.querySelector(selector);
+                return el ? el.getAttribute(attr) : '';
+            }
+
+            function extractSessionData(xmlString) {
+                const doc = parseXML(xmlString);
+                if (!doc || doc.querySelector('parsererror')) return null;
+                const sessionCode = getAttribute(doc, 'session', 'sessioncode');
+                const tableName = getTextContent(doc, 'tablename');
+                const gameCount = parseInt(getTextContent(doc, 'gamecount')) || 0;
+                const startDate = getTextContent(doc, 'startdate');
+                const bets = parseFloat(getTextContent(doc, 'bets').replace('€', '')) || 0;
+                const wins = parseFloat(getTextContent(doc, 'wins').replace('€', '')) || 0;
+                const profit = wins - bets;
+                const gameType = getTextContent(doc, 'gametype');
+                let limit = 0;
+                const match = gameType.match(/(\d+\.?\d*)\/(\d+\.?\d*)/);
+                if (match) limit = parseFloat(match[2]);
+                return {
+                    sessionCode, tableName, gameCount, startDate,
+                    bets, wins, profit, limit, gameType, rawXML: xmlString
+                };
+            }
+
+            function formatDuration(seconds) {
+                if (!seconds || seconds < 0) return '0с';
+                const h = Math.floor(seconds / 3600);
+                const m = Math.floor((seconds % 3600) / 60);
+                const s = Math.floor(seconds % 60);
+                if (h > 0) return `${h}ч ${m}м`;
+                if (m > 0) return `${m}м ${s}с`;
+                return `${s}с`;
+            }
+
+            function formatDate(date) {
+                return date.toLocaleDateString('ru-RU', { day:'2-digit', month:'short', year:'numeric' });
+            }
+
+            function formatTime(date) {
+                return date.toLocaleTimeString('ru-RU', { hour:'2-digit', minute:'2-digit' });
+            }
+
+            // ===== Основное приложение =====
+            const app = new Vue({
+                el: '#app',
+                data: {
+                    files: { tables: [], hm3: [] },
+                    fileCounts: { tables: 0, hm3: 0 },
+                    allSessions: [],
+                    dateFrom: '',
+                    dateTo: '',
+                    activePreset: 'all',
+                    sessionGap: 30,
+                    dayStartTime: '06:00',
+                    theme: 'light',
+                    scale: 1,
+                    openDetail: null,
+                    selectedDay: null,
+                    presets: [
+                        { label: '6ч', value: '6h' },
+                        { label: '12ч', value: '12h' },
+                        { label: 'Сутки', value: '24h' },
+                        { label: 'Неделя', value: '7d' },
+                        { label: 'Месяц', value: '30d' },
+                        { label: 'Год', value: '365d' },
+                        { label: 'Всё', value: 'all' }
+                    ],
+                    cacheKey: 'pokerAnalyzerCache'
+                },
+                computed: {
+                    hasFiles() {
+                        return this.files.tables.length > 0 || this.files.hm3.length > 0;
+                    },
+                    totalGames() {
+                        return this.allSessions.reduce((sum, s) => sum + s.gameCount, 0);
+                    },
+                    filteredSessions() {
+                        if (!this.allSessions.length) return [];
+                        const filtered = this.filterByDate(this.allSessions);
+                        return this.groupIntoSessions(filtered);
+                    },
+                    displayedSessions() {
+                        if (this.selectedDay === null) return this.filteredSessions;
+                        return this.filteredSessions.filter(s => this.getSessionDay(s) === this.selectedDay);
+                    },
+                    totalHands() {
+                        return this.filteredSessions.reduce((sum, s) => sum + s.hands, 0);
+                    },
+                    totalProfit() {
+                        return this.filteredSessions.reduce((sum, s) => sum + s.profit, 0);
+                    },
+                    winrate() {
+                        const hands = this.totalHands;
+                        if (hands === 0) return 0;
+                        let totalBB = 0, count = 0;
+                        for (const s of this.filteredSessions) {
+                            for (const t of s.tables) {
+                                totalBB += t.limit || 0.10;
+                                count++;
+                            }
+                        }
+                        const avgBB = count > 0 ? totalBB / count : 0.10;
+                        return (this.totalProfit / (hands / 100)) / avgBB;
+                    },
+                    totalSeconds() {
+                        let total = 0;
+                        for (const s of this.filteredSessions) {
+                            total += s.durationSeconds || 0;
+                        }
+                        return total;
+                    },
+                    totalTimeFormatted() {
+                        return formatDuration(this.totalSeconds);
+                    },
+                    selectedDayLabel() {
+                        if (!this.selectedDay) return '';
+                        const d = new Date(this.selectedDay + 'T12:00:00');
+                        return formatDate(d);
+                    }
+                },
+                watch: {
+                    sessionGap() { this.saveSettings(); },
+                    dayStartTime() { this.saveSettings(); },
+                    dateFrom() { this.applyCustomDate(); },
+                    dateTo() { this.applyCustomDate(); },
+                    theme() {
+                        document.documentElement.setAttribute('data-theme', this.theme);
+                        localStorage.setItem('theme', this.theme);
+                    },
+                    scale(val) {
+                        document.getElementById('app-wrapper').style.setProperty('--scale', val);
+                        localStorage.setItem('scale', val);
+                    }
+                },
+                mounted() {
+                    this.loadCache();
+                    const savedTheme = localStorage.getItem('theme');
+                    if (savedTheme) {
+                        this.theme = savedTheme;
+                        document.documentElement.setAttribute('data-theme', savedTheme);
+                    }
+                    const savedScale = parseFloat(localStorage.getItem('scale'));
+                    if (savedScale && savedScale >= 0.5 && savedScale <= 2) {
+                        this.scale = savedScale;
+                        document.getElementById('app-wrapper').style.setProperty('--scale', savedScale);
+                    }
+                    const now = new Date();
+                    const weekAgo = new Date(now);
+                    weekAgo.setDate(weekAgo.getDate() - 7);
+                    if (!this.dateFrom) this.dateFrom = weekAgo.toISOString().split('T')[0];
+                    if (!this.dateTo) this.dateTo = now.toISOString().split('T')[0];
+                    if (!this.activePreset) this.activePreset = '7d';
+                    const savedDay = localStorage.getItem('selectedDay');
+                    if (savedDay) this.selectedDay = savedDay;
+                },
+                methods: {
+                    // ===== Форматирование для шаблона =====
+                    formatDuration(seconds) {
+                        return formatDuration(seconds);
+                    },
+
+                    // ===== Масштаб =====
+                    scaleUp() {
+                        if (this.scale < 2) this.scale = Math.round((this.scale + 0.05) * 100) / 100;
+                    },
+                    scaleDown() {
+                        if (this.scale > 0.5) this.scale = Math.round((this.scale - 0.05) * 100) / 100;
+                    },
+
+                    // ===== Работа с папками =====
+                    triggerFolder(type) {
+                        this.$refs[type + 'Input'].click();
+                    },
+                    handleFolder(type, event) {
+                        const files = event.target.files;
+                        if (!files.length) return;
+                        const promises = [];
+                        for (const file of files) {
+                            if (!file.name.toLowerCase().endsWith('.xml')) continue;
+                            promises.push(new Promise((resolve) => {
+                                const reader = new FileReader();
+                                reader.onload = (e) => resolve(e.target.result);
+                                reader.readAsText(file);
+                            }));
+                        }
+                        Promise.all(promises).then((contents) => {
+                            this.files[type] = contents;
+                            this.fileCounts[type] = contents.length;
+                            this.processFiles();
+                        }).catch(err => alert('Ошибка чтения файлов: ' + err));
+                        event.target.value = '';
+                    },
+
+                    // ===== Обработка =====
+                    processFiles() {
+                        const allXML = [...this.files.tables, ...this.files.hm3];
+                        if (!allXML.length) { alert('Нет файлов для обработки.'); return; }
+                        const sessions = [];
+                        for (const xml of allXML) {
+                            const data = extractSessionData(xml);
+                            if (data) sessions.push(data);
+                        }
+                        sessions.sort((a, b) => new Date(a.startDate) - new Date(b.startDate));
+                        this.allSessions = sessions;
+                        this.saveCache();
+                        this.openDetail = null;
+                        if (this.selectedDay && !this.filteredSessions.some(s => this.getSessionDay(s) === this.selectedDay)) {
+                            this.selectedDay = null;
+                            localStorage.removeItem('selectedDay');
+                        }
+                        this.saveSettings();
+                    },
+                    refreshData() {
+                        this.processFiles();
+                    },
+
+                    // ===== Фильтрация по дате =====
+                    filterByDate(sessions) {
+                        if (this.activePreset === 'all' && !this.dateFrom && !this.dateTo) return sessions;
+                        let from = this.dateFrom ? new Date(this.dateFrom) : null;
+                        let to = this.dateTo ? new Date(this.dateTo) : null;
+                        if (to) to.setHours(23, 59, 59, 999);
+                        if (from && to && from > to) [from, to] = [to, from];
+                        return sessions.filter(s => {
+                            const d = new Date(s.startDate);
+                            if (from && d < from) return false;
+                            if (to && d > to) return false;
+                            return true;
+                        });
+                    },
+
+                    // ===== Группировка в сессии (по времени) =====
+                    groupIntoSessions(sessions) {
+                        if (!sessions.length) return [];
+                        const gapMs = this.sessionGap * 60 * 1000;
+                        const sorted = [...sessions].sort((a, b) => new Date(a.startDate) - new Date(b.startDate));
+                        const groups = [];
+                        let current = [];
+                        for (const s of sorted) {
+                            if (!current.length) { current.push(s); continue; }
+                            const last = current[current.length - 1];
+                            const lastDate = new Date(last.startDate);
+                            const currDate = new Date(s.startDate);
+                            const diff = currDate.getTime() - lastDate.getTime();
+                            if (diff > gapMs) {
+                                groups.push([...current]);
+                                current = [s];
+                            } else {
+                                current.push(s);
+                            }
+                        }
+                        if (current.length) groups.push([...current]);
+
+                        return groups.map((group) => {
+                            const first = group[0];
+                            const last = group[group.length - 1];
+                            const totalProfit = group.reduce((sum, s) => sum + s.profit, 0);
+                            const totalHands = group.reduce((sum, s) => sum + s.gameCount, 0);
+                            let totalLimit = 0;
+                            for (const s of group) totalLimit += s.limit || 0.10;
+                            const avgLimit = totalLimit / group.length || 0.10;
+                            const winrate = totalHands > 0 ? (totalProfit / (totalHands / 100)) / avgLimit : 0;
+
+                            const start = new Date(first.startDate);
+                            const end = new Date(last.startDate);
+                            const durationSec = Math.floor((end.getTime() - start.getTime()) / 1000);
+
+                            const tables = group.map(s => ({
+                                name: s.tableName || 'Unknown',
+                                hands: s.gameCount,
+                                profit: s.profit,
+                                limit: s.limit || 0.10,
+                                winrate: s.gameCount > 0 ? (s.profit / (s.gameCount / 100)) / (s.limit || 0.10) : 0
+                            }));
+
+                            return {
+                                date: formatDate(start),
+                                timeRange: `${formatTime(start)} - ${formatTime(end)}`,
+                                hands: totalHands,
+                                duration: formatDuration(durationSec),
+                                durationSeconds: durationSec,
+                                profit: totalProfit,
+                                winrate: winrate,
+                                tables: tables,
+                                startDate: first.startDate,
+                                dayKey: this.getDayKey(start)
+                            };
+                        });
+                    },
+
+                    // ===== Определение дня =====
+                    getDayKey(date) {
+                        const d = new Date(date);
+                        const [h, m] = this.dayStartTime.split(':').map(Number);
+                        if (d.getHours() < h || (d.getHours() === h && d.getMinutes() < m)) {
+                            d.setDate(d.getDate() - 1);
+                        }
+                        d.setHours(0, 0, 0, 0);
+                        return d.toISOString().split('T')[0];
+                    },
+                    getSessionDay(session) {
+                        return session.dayKey || this.getDayKey(new Date(session.startDate));
+                    },
+                    isDayBoundary(idx) {
+                        if (idx === 0) return false;
+                        const currentDay = this.getSessionDay(this.filteredSessions[idx]);
+                        const prevDay = this.getSessionDay(this.filteredSessions[idx - 1]);
+                        return currentDay !== prevDay;
+                    },
+
+                    // ===== Выбор дня =====
+                    selectDay(dayKey) {
+                        if (this.selectedDay === dayKey) {
+                            this.selectedDay = null;
+                            localStorage.removeItem('selectedDay');
+                        } else {
+                            this.selectedDay = dayKey;
+                            localStorage.setItem('selectedDay', dayKey);
+                        }
+                        this.openDetail = null;
+                    },
+
+                    // ===== Фильтры =====
+                    applyPreset(value) {
+                        this.activePreset = value;
+                        const now = new Date();
+                        let from = new Date(now);
+                        switch (value) {
+                            case '6h': from.setHours(now.getHours() - 6); break;
+                            case '12h': from.setHours(now.getHours() - 12); break;
+                            case '24h': from.setDate(now.getDate() - 1); break;
+                            case '7d': from.setDate(now.getDate() - 7); break;
+                            case '30d': from.setDate(now.getDate() - 30); break;
+                            case '365d': from.setFullYear(now.getFullYear() - 1); break;
+                            default: this.dateFrom = ''; this.dateTo = ''; this.saveSettings(); return;
+                        }
+                        this.dateFrom = from.toISOString().split('T')[0];
+                        this.dateTo = now.toISOString().split('T')[0];
+                        this.selectedDay = null;
+                        localStorage.removeItem('selectedDay');
+                        this.saveSettings();
+                    },
+                    applyCustomDate() {
+                        this.activePreset = 'custom';
+                        this.selectedDay = null;
+                        localStorage.removeItem('selectedDay');
+                        this.saveSettings();
+                    },
+
+                    // ===== Тема =====
+                    toggleTheme() {
+                        this.theme = (this.theme === 'light' ? 'dark' : 'light');
+                    },
+
+                    // ===== Кэш =====
+                    saveCache() {
+                        try {
+                            const data = {
+                                sessions: this.allSessions,
+                                files: this.files,
+                                fileCounts: this.fileCounts,
+                                dateFrom: this.dateFrom,
+                                dateTo: this.dateTo,
+                                activePreset: this.activePreset,
+                                sessionGap: this.sessionGap,
+                                dayStartTime: this.dayStartTime,
+                                selectedDay: this.selectedDay
+                            };
+                            localStorage.setItem(this.cacheKey, JSON.stringify(data));
+                        } catch(e) {}
+                    },
+                    loadCache() {
+                        try {
+                            const raw = localStorage.getItem(this.cacheKey);
+                            if (!raw) return;
+                            const data = JSON.parse(raw);
+                            if (data.sessions) this.allSessions = data.sessions;
+                            if (data.files) this.files = data.files;
+                            if (data.fileCounts) this.fileCounts = data.fileCounts;
+                            if (data.dateFrom) this.dateFrom = data.dateFrom;
+                            if (data.dateTo) this.dateTo = data.dateTo;
+                            if (data.activePreset) this.activePreset = data.activePreset;
+                            if (data.sessionGap) this.sessionGap = data.sessionGap;
+                            if (data.dayStartTime) this.dayStartTime = data.dayStartTime;
+                            if (data.selectedDay !== undefined) this.selectedDay = data.selectedDay;
+                        } catch(e) {}
+                    },
+                    saveSettings() {
+                        this.saveCache();
+                    },
+                    clearAllData() {
+                        if (!confirm('Очистить весь кэш и загруженные файлы?')) return;
+                        localStorage.removeItem(this.cacheKey);
+                        localStorage.removeItem('selectedDay');
+                        this.allSessions = [];
+                        this.files = { tables: [], hm3: [] };
+                        this.fileCounts = { tables: 0, hm3: 0 };
+                        this.openDetail = null;
+                        this.selectedDay = null;
+                        alert('Кэш очищен.');
+                    }
+                }
+            });
+        })();
+    </script>
 </body>
 </html>
