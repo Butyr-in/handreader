@@ -2,31 +2,35 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>Анализатор сессий</title>
+    <title>Анализатор сессий RedStar & HM3 v4</title>
     <style>
         body { font-family: 'Segoe UI', sans-serif; background: #121212; color: #e0e0e0; padding: 40px; margin: 0; }
         .container { max-width: 1000px; margin: 0 auto; }
         h1 { text-align: center; color: #4caf50; margin-bottom: 5px; }
         .player-name { text-align: center; color: #888; margin-bottom: 30px; font-size: 14px; text-transform: uppercase; letter-spacing: 1px; }
         
-        /* Две кнопки управления */
-        .controls { display: flex; gap: 15px; justify-content: center; margin-bottom: 30px; flex-wrap: wrap; }
-        .btn-upload { background: #4caf50; color: #fff; padding: 12px 20px; border-radius: 8px; border: none; font-size: 15px; font-weight: bold; cursor: pointer; transition: 0.2s; }
+        .controls { display: flex; gap: 15px; justify-content: center; margin-bottom: 30px; align-items: center; }
+        .btn-upload { background: #4caf50; color: #fff; padding: 12px 24px; border-radius: 8px; border: none; font-size: 15px; font-weight: bold; cursor: pointer; transition: 0.2s; }
         .btn-upload.hm3 { background: #2196f3; }
         .btn-upload:hover { filter: brightness(1.1); }
-        #drop-zone { width: 100%; border: 2px dashed #4caf50; padding: 15px; border-radius: 8px; text-align: center; background: #1e1e1e; color: #aaa; margin-top: 10px; }
+        
+        #status-bar { text-align: center; color: #ffb74d; font-weight: bold; margin-bottom: 20px; font-size: 15px; }
+        #drop-zone { border: 2px dashed #4caf50; padding: 15px; border-radius: 8px; text-align: center; background: #1e1e1e; color: #aaa; margin-top: 10px; }
         
         .stats-card { display: flex; justify-content: space-around; background: #1e1e1e; padding: 25px; border-radius: 12px; margin-top: 20px; border-left: 5px solid #4caf50; box-shadow: 0 4px 15px rgba(0,0,0,0.3); }
         .stat-item { text-align: center; min-width: 140px; }
         .stat-val { font-size: 32px; font-weight: bold; color: #fff; }
         .stat-lbl { font-size: 12px; color: #aaa; text-transform: uppercase; margin-top: 5px; }
+        
         .session-block { background: #1e1e1e; border-radius: 8px; margin-top: 20px; padding: 20px; border-left: 4px solid #2196f3; box-shadow: 0 4px 10px rgba(0,0,0,0.2); }
         .session-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #333; padding-bottom: 10px; margin-bottom: 15px; }
         .session-title { font-size: 18px; font-weight: bold; color: #2196f3; }
         .session-time { font-size: 14px; color: #ffb74d; font-weight: 500; }
         .session-summary { display: flex; gap: 30px; font-size: 14px; margin-bottom: 15px; color: #bbb; }
+        
         .profit-plus { color: #4caf50 !important; }
         .profit-minus { color: #f44336 !important; }
+        
         table { width: 100%; border-collapse: collapse; background: #252525; border-radius: 6px; overflow: hidden; }
         th, td { padding: 10px 14px; text-align: left; border-bottom: 1px solid #333; font-size: 13px; }
         th { background: #333; color: #2196f3; text-transform: uppercase; font-size: 11px; }
@@ -35,20 +39,19 @@
 </head>
 <body>
 <div class="container">
-    <h1>Анализатор сессий</h1>
-    <div class="player-name" id="player-title">Имя игрока</div>
+    <h1>RedStar Poker Analyzer</h1>
+    <div class="player-name" id="player-title">Накопительный анализ сессий</div>
     
     <div class="controls">
-        <!-- Кнопка 1: Источник рума -->
-        <button class="btn-upload" onclick="document.getElementById('redstar-input').click()">📁 1. Живая папка RedStar</button>
+        <button class="btn-upload" onclick="document.getElementById('redstar-input').click()">📁 Добавить из RedStar</button>
         <input type="file" id="redstar-input" webkitdirectory directory multiple style="display: none;">
         
-        <!-- Кнопка 2: Источник HM3 -->
-        <button class="btn-upload hm3" onclick="document.getElementById('hm3-input').click()">📁 2. Архив HM3</button>
+        <button class="btn-upload hm3" onclick="document.getElementById('hm3-input').click()">📁 Добавить из HM3 Archive</button>
         <input type="file" id="hm3-input" webkitdirectory directory multiple style="display: none;">
-        
-        <div id="drop-zone">Или выделите файлы/папки в проводнике и перетащите их СЮДА целиком</div>
     </div>
+    
+    <div id="drop-zone">Или перетаскивайте любые папки с файлами (.xml) сюда по очереди</div>
+    <div id="status-bar">Ожидание загрузки файлов...</div>
     
     <div id="summary" style="display: none;">
         <div class="stats-card">
@@ -57,7 +60,7 @@
             <div class="stat-item"><div class="stat-val" id="total-profit">€0.00</div><div class="stat-lbl">Общий профит</div></div>
             <div class="stat-item"><div class="stat-val" id="total-time">0 ч. 0 мин.</div><div class="stat-lbl">Время активной игры</div></div>
         </div>
-        <h2 style="margin-top: 40px; color: #4caf50;">Хронология активных сессий:</h2>
+        <h2 style="margin-top: 40px; color: #4caf50;">Хронология сессий:</h2>
         <div id="sessions-list"></div>
     </div>
 </div>
@@ -68,10 +71,15 @@
     const summaryDiv = document.getElementById('summary');
     const sessionsList = document.getElementById('sessions-list');
     const playerTitle = document.getElementById('player-title');
+    const statusBar = document.getElementById('status-bar');
 
-    // Хранилище всех уникальных обработанных столов
-    let globalProcessedTables = new Map();
+    // Глобальная база данных в памяти, которая хранит УНИКАЛЬНЫЕ столы и никогда не затирается сама
+    let memoryDatabase = new Map();
     let currentNickname = "GNKTABACCO";
+
+    // Сброс значений инпутов при клике, чтобы change срабатывал даже при выборе одной и той же папки дважды
+    redstarInput.onclick = function() { this.value = null; };
+    hm3Input.onclick = function() { this.value = null; };
 
     redstarInput.onchange = (e) => processFileList(e.target.files);
     hm3Input.onchange = (e) => processFileList(e.target.files);
@@ -87,26 +95,37 @@
 
     async function processFileList(fileList) {
         const files = Array.from(fileList);
-        let newTablesLoaded = false;
+        if (files.length === 0) return;
+
+        statusBar.innerText = `Обработка папки... Найдено файлов для проверки: ${files.length}`;
+        let addedCount = 0;
+        let skippedCount = 0;
 
         for (const file of files) {
             if (!file.name.endsWith('.xml') && !file.name.endsWith('.txt')) continue;
             const text = await file.text();
             
-            // Проверяем наличие уникального кода сессии стола iPoker, чтобы исключить дубли
-            const sessionCode = getTagValue(text, 'session') || text.match(/sessioncode="(\d+)"/i)?.[1];
-            if (!sessionCode) continue;
+            // Вытаскиваем sessioncode из XML
+            let sessionCode = getTagValue(text, 'session') || text.match(/sessioncode="(\d+)"/i)?.[1];
+            if (!sessionCode) {
+                // Если тега нет, генерируем код на базе названия стола и даты, чтобы не пропустить файл
+                const tName = getTagValue(text, 'tablename');
+                const sDate = getTagValue(text, 'startdate');
+                if (tName && sDate) sessionCode = tName + "_" + sDate;
+            }
+            
+            if (!sessionCode) { skippedCount++; continue; }
 
-            // Если трекер уже скопировал этот файл и мы прочитали его дважды — пропускаем дубликат
-            if (globalProcessedTables.has(sessionCode)) continue;
+            // Если этот стол уже загружен из прошлого источника — просто игнорируем дубликат
+            if (memoryDatabase.has(sessionCode)) { skippedCount++; continue; }
 
             const handMatches = (text.match(/<game\b/ig) || []).length;
-            if (handMatches === 0) continue;
+            if (handMatches === 0) { skippedCount++; continue; }
 
-            // Защита: Считаем только те столы, где Hero делал ставки
+            // Фильтр Hero: Исключаем столы с нулевыми ставками (где не участвовали деньгами)
             const betsText = getTagValue(text, 'bets') || '0';
             const bets = parseFloat(betsText.replace(/[^0-9.-]/g, '')) || 0;
-            if (bets === 0) continue; 
+            if (bets === 0) { skippedCount++; continue; } 
 
             const tableName = getTagValue(text, 'tablename') || 'Неизвестный стол';
             const gameType = getTagValue(text, 'gametype') || 'Holdem';
@@ -115,44 +134,45 @@
 
             const startDateStr = getTagValue(text, 'startdate'); 
             const durationText = getTagValue(text, 'duration') || '00:00:00';
-            if (!startDateStr) continue;
+            if (!startDateStr) { skippedCount++; continue; }
 
             const startDate = new Date(startDateStr.replace(/-/g, '/'));
             const timeParts = durationText.split(':');
-            const durationMinutes = (parseInt(timeParts) * 60) + parseInt(timeParts);
+            const durationMinutes = (parseInt(timeParts[0]) * 60) + parseInt(timeParts[1]);
             const endDate = new Date(startDate.getTime() + durationMinutes * 60000);
 
             const winsText = getTagValue(text, 'wins') || '0';
             const wins = parseFloat(winsText.replace(/[^0-9.-]/g, '')) || 0;
             const profit = wins - bets;
 
-            globalProcessedTables.set(sessionCode, {
+            memoryDatabase.set(sessionCode, {
                 tableName, gameType, handMatches, durationText, durationMinutes, startDate, endDate, profit
             });
-            newTablesLoaded = true;
+            addedCount++;
         }
 
-        if (newTablesLoaded) {
+        statusBar.innerText = `Успешно добавлено уникальных столов: ${addedCount} (Пропущено дублей/пустых: ${skippedCount}). Всего в базе столов: ${memoryDatabase.size}`;
+        
+        if (addedCount > 0) {
             rebuildDashboard();
         }
     }
     function rebuildDashboard() {
         sessionsList.innerHTML = '';
-        let rawTables = Array.from(globalProcessedTables.values());
+        let rawTables = Array.from(memoryDatabase.values());
         
         if (rawTables.length === 0) return;
 
-        // Хронологическая сортировка столов из двух разных папок
+        // Полная сортировка объединенного массива по времени открытия столов
         rawTables.sort((a, b) => a.startDate - b.startDate);
 
         let sessions = [];
-        let currentSession = { tables: [rawTables] };
+        let currentSession = { tables: [rawTables[0]] };
 
         for (let i = 1; i < rawTables.length; i++) {
             let lastTable = currentSession.tables[currentSession.tables.length - 1];
             let currentTable = rawTables[i];
 
-            // Группировка: Перерыв между закрытием одного стола и открытием другого > 45 мин означает новую сессию
             if ((currentTable.startDate - lastTable.endDate) / 60000 > 45) {
                 sessions.push(currentSession);
                 currentSession = { tables: [currentTable] };
